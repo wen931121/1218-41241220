@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新增、刪除、修改與獲取代辦事項</title>
+    <!-- 加入 Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            text-align: center;
+        }
+        .message {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .todos-list {
+            margin-top: 30px;
+        }
+        .todo-item {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+        .todo-item:last-child {
+            border-bottom: none;
+        }
+        .todo-text {
+            flex-grow: 1;
+            word-wrap: break-word;
+            max-width: 70%;
+        }
+        .button-container {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .update-btn, .delete-btn {
+            background-color: #ffa500;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 5px 10px;
+        }
+        .update-btn:hover, .delete-btn:hover {
+            background-color: #e68900;
+        }
+        .delete-btn {
+            background-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>新增、刪除、修改與獲取代辦事項</h1>
+    
+    <!-- 按鈕觸發 Modal -->
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTodoModal">新增代辦事項</button>
+
+    <!-- 新增代辦事項 Modal -->
+    <div class="modal fade" id="addTodoModal" tabindex="-1" aria-labelledby="addTodoModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addTodoModalLabel">新增代辦事項</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="todoForm">
+                        <div class="mb-3">
+                            <label for="student_id" class="form-label">學號:</label>
+                            <input type="text" class="form-control" id="student_id" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="task" class="form-label">代辦事項:</label>
+                            <input type="text" class="form-control" id="task" required>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">新增代辦事項</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="responseMessage" class="message"></div>
+
+    <!-- 代辦事項列表 -->
+    <div id="todosList" class="todos-list"></div>
+
+    <!-- 加入 Bootstrap 5.3 JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // 取得並顯示代辦事項
+        async function fetchTodos() {
+            const studentId = document.getElementById('student_id').value;
+            if (!studentId) {
+                alert('請先輸入學號');
+                return;
+            }
+
+            try {
+                const response = await fetch(`https://nfutest.pythonanywhere.com/todos?student_id=${studentId}`);
+                
+                if (response.status === 200) {
+                    const data = await response.json();
+                    const todos = data.todos;
+
+                    if (todos.length > 0) {
+                        let todosHtml = '';
+                        todos.forEach(todo => {
+                            todosHtml += `
+                                <div class="todo-item">
+                                    <p class="todo-text ${todo.completed ? 'completed' : ''}">${todo.task}</p>
+                                    <p><strong>${todo.completed ? '已完成' : '未完成'}</strong></p>
+                                    <div class="button-container">
+                                        <button class="update-btn" onclick="toggleCompletion(${todo.id}, '${todo.task}', ${todo.completed})">
+                                            修改狀態
+                                        </button>
+                                        <button class="delete-btn" onclick="deleteTodo(${todo.id})">
+                                            刪除
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        document.getElementById('todosList').innerHTML = todosHtml;
+                    } else {
+                        document.getElementById('todosList').innerHTML = '<p>目前沒有代辦事項。</p>';
+                    }
+                } else {
+                    const data = await response.json();
+                    alert('錯誤: ' + (data.message || '請求失敗'));
+                }
+            } catch (error) {
+                alert('無法聯繫伺服器，請稍後再試。');
+            }
+        }
+
+        // 修改代辦事項的完成狀態
+        async function toggleCompletion(id, task, currentCompletedStatus) {
+            const studentId = document.getElementById('student_id').value;
+            const newCompletedStatus = !currentCompletedStatus;  // 切換狀態
+
+            const requestData = {
+                student_id: studentId,
+                task: task,  // 保持代辦事項的名稱
+                completed: newCompletedStatus
+            };
+
+            try {
+                const response = await fetch(`https://nfutest.pythonanywhere.com/todos/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                if (response.status === 200) {
+                    const data = await response.json();
+                    alert('代辦事項狀態已更新！');
+                    fetchTodos();  // 更新代辦事項顯示
+                } else {
+                    const data = await response.json();
+                    alert('錯誤: ' + (data.message || '請求失敗'));
+                }
+            } catch (error) {
+                alert('無法聯繫伺服器，請稍後再試。');
+            }
+        }
+
+        // 刪除代辦事項
+        async function deleteTodo(id) {
+            const studentId = document.getElementById('student_id').value;
+
+            const requestData = {
+                student_id: studentId
+            };
+
+            try {
+                const response = await fetch(`https://nfutest.pythonanywhere.com/todos/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                if (response.status === 200) {
+                    const data = await response.json();
+                    alert(data.message);  // 顯示刪除成功的消息
+                    fetchTodos();  // 更新代辦事項顯示
+                } else {
+                    const data = await response.json();
+                    alert('錯誤: ' + (data.message || '請求失敗'));
+                }
+            } catch (error) {
+                alert('無法聯繫伺服器，請稍後再試。');
+            }
+        }
+
+        // 新增代辦事項
+        document.getElementById('todoForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const studentId = document.getElementById('student_id').value;
+            const task = document.getElementById('task').value;
+
+            const requestData = {
+                student_id: studentId,
+                task: task
+            };
+
+            try {
+                const response = await fetch('https://nfutest.pythonanywhere.com/todos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                if (response.status === 201) {
+                    const data = await response.json();
+                    document.getElementById('responseMessage').innerHTML = `<p class="success">代辦事項新增成功！<br>代辦事項ID: ${data.id}</p>`;
+                    fetchTodos();  // 更新代辦事項顯示
+                    // 關閉 Modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addTodoModal'));
+                    modal.hide();
+                } else {
+                    const data = await response.json();
+                    document.getElementById('responseMessage').innerHTML = `<p class="error">錯誤: ${data.message || '請求失敗'}</p>`;
+                }
+            } catch (error) {
+                document.getElementById('responseMessage').innerHTML = `<p class="error">無法聯繫伺服器，請稍後再試。</p>`;
+            }
+        });
+
+        // 頁面加載時自動獲取代辦事項
+        window.addEventListener('load', function() {
+            fetchTodos();  // 頁面加載後自動獲取代辦事項
+        });
+    </script>
+</body>
+</html>
